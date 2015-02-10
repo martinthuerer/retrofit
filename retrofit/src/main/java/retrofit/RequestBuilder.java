@@ -334,12 +334,25 @@ final class RequestBuilder implements RequestInterceptor.RequestFacade {
         if (value != null) { // Skip null values.
           String name = ((Part) annotation).value();
           String transferEncoding = ((Part) annotation).encoding();
-          if (value instanceof TypedOutput) {
-            multipartBody.addPart(name, transferEncoding, (TypedOutput) value);
-          } else if (value instanceof String) {
-            multipartBody.addPart(name, transferEncoding, new TypedString((String) value));
-          } else {
-            multipartBody.addPart(name, transferEncoding, converter.toBody(value));
+            if (value instanceof Iterable) {
+              for (Object iterableValue : (Iterable<?>) value) {
+                  if (iterableValue != null) { // Skip null values
+                      multipartBody.addPart(name, transferEncoding, (TypedOutput) iterableValue);
+                  }
+              }
+            } else if (value.getClass().isArray()) {
+              for (int x = 0, arrayLength = Array.getLength(value); x < arrayLength; x++) {
+                  Object arrayValue = Array.get(value, x);
+                  if (arrayValue != null) { // Skip null values
+                      multipartBody.addPart(name, transferEncoding, (TypedOutput) arrayValue);
+                  }
+              }
+            } else if (value instanceof TypedOutput) {
+                multipartBody.addPart(name, transferEncoding, (TypedOutput) value);
+            } else if (value instanceof String) {
+                multipartBody.addPart(name, transferEncoding, new TypedString((String) value));
+            } else {
+              multipartBody.addPart(name, transferEncoding, converter.toBody(value));
           }
         }
       } else if (annotationType == PartMap.class) {
@@ -354,13 +367,26 @@ final class RequestBuilder implements RequestInterceptor.RequestFacade {
             String entryName = entryKey.toString();
             Object entryValue = entry.getValue();
             if (entryValue != null) { // Skip null values.
-              if (entryValue instanceof TypedOutput) {
+                System.out.println(entryName);
+                if (entryValue instanceof Iterable) {
+                    for (Object iterableValue : (Iterable<?>) entryValue) {
+                        if (iterableValue != null) { // Skip null values
+                            multipartBody.addPart(entryName, transferEncoding, (TypedOutput) iterableValue);
+                        }
+                    }
+                } else if (entryValue.getClass().isArray()) {
+                    for (int x = 0, arrayLength = Array.getLength(entryValue); x < arrayLength; x++) {
+                        Object arrayValue = Array.get(entryValue, x);
+                        if (arrayValue != null) { // Skip null values
+                            multipartBody.addPart(entryName, transferEncoding, (TypedOutput) arrayValue);
+                        }
+                    }
+                } else if (entryValue instanceof TypedOutput) {
                 multipartBody.addPart(entryName, transferEncoding, (TypedOutput) entryValue);
-              } else if (entryValue instanceof String) {
-                multipartBody.addPart(entryName, transferEncoding,
-                    new TypedString((String) entryValue));
-              } else {
-                multipartBody.addPart(entryName, transferEncoding, converter.toBody(entryValue));
+                } else if (entryValue instanceof String) {
+                    multipartBody.addPart(entryName, transferEncoding, new TypedString((String) entryValue));
+                } else {
+                  multipartBody.addPart(entryName, transferEncoding, converter.toBody(entryValue));
               }
             }
           }

@@ -1,6 +1,7 @@
 // Copyright 2013 Square, Inc.
 package retrofit;
 
+import com.google.common.collect.Lists;
 import com.google.gson.Gson;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -44,6 +45,7 @@ import retrofit.http.RestMethod;
 import retrofit.http.Streaming;
 import retrofit.mime.MimeHelper;
 import retrofit.mime.MultipartTypedOutput;
+import retrofit.mime.TypedFile;
 import retrofit.mime.TypedInput;
 import retrofit.mime.TypedOutput;
 import retrofit.mime.TypedString;
@@ -53,6 +55,7 @@ import static com.google.common.base.Charsets.UTF_8;
 import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 @SuppressWarnings("UnusedParameters") // Parameters inspected reflectively.
@@ -1886,6 +1889,72 @@ public class RequestBuilderTest {
     Request request = buildRequest(Example.class, "text/not-plain", new TypedString("Plain"));
     assertThat(request.getBody().mimeType()).isEqualTo("text/not-plain");
   }
+
+    @Test public void multipartPartMapWithList() {
+        class Example {
+            @Multipart //
+            @POST("/foo/bar/") //
+            Response method(@PartMap Map<String, Object> parts) {
+                return null;
+            }
+        }
+
+        Map<String, Object> params = new LinkedHashMap<String, Object>();
+        params.put("ping", Lists.newArrayList(new TypedString("A"), new TypedString("B")));
+        params.put("kit", new TypedString("kat"));
+
+        Request request = buildRequest(Example.class, params);
+        assertThat(request.getMethod()).isEqualTo("POST");
+        assertThat(request.getHeaders()).isEmpty();
+        assertThat(request.getUrl()).isEqualTo("http://example.com/foo/bar/");
+
+        MultipartTypedOutput body = (MultipartTypedOutput) request.getBody();
+        List<byte[]> bodyParts = MimeHelper.getParts(body);
+        //assertThat(bodyParts).hasSize(3);
+
+        Iterator<byte[]> iterator = bodyParts.iterator();
+
+        String one = new String(iterator.next(), UTF_8);
+        assertThat(one).contains("name=\"ping\"\r\n").endsWith("\r\nA");;
+        System.out.println(one);
+
+        String two = new String(iterator.next(), UTF_8);
+        assertThat(two).contains("name=\"ping\"\r\n").endsWith("\r\nB");;
+        System.out.println(two);
+
+        String three = new String(iterator.next(), UTF_8);
+        assertThat(three).contains("name=\"kit\"").endsWith("\r\nkat");
+        System.out.println(three);
+
+    }
+
+    @Test public void multipartPartWithList() {
+        class Example {
+            @Multipart //
+            @POST("/foo/bar/") //
+            Response method(@Part(value = "ping") List<TypedString> parts) {
+                return null;
+            }
+        }
+
+        Request request = buildRequest(Example.class, Lists.newArrayList(new TypedString("A"), new TypedString("B")));
+        assertThat(request.getMethod()).isEqualTo("POST");
+        assertThat(request.getHeaders()).isEmpty();
+        assertThat(request.getUrl()).isEqualTo("http://example.com/foo/bar/");
+
+        MultipartTypedOutput body = (MultipartTypedOutput) request.getBody();
+        List<byte[]> bodyParts = MimeHelper.getParts(body);
+        assertThat(bodyParts).hasSize(2);
+
+        // Check Output key
+        Iterator<byte[]> iterator = bodyParts.iterator();
+
+        String one = new String(iterator.next(), UTF_8);
+        assertThat(one).contains("name=\"ping\"\r\n").endsWith("\r\nA");
+
+        String two = new String(iterator.next(), UTF_8);
+        assertThat(two).contains("name=\"ping\"\r\n").endsWith("\r\nB");
+    }
 
   private static void assertTypedBytes(TypedOutput bytes, String expected) {
     try {
